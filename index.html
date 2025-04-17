@@ -2,189 +2,227 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Pong Game</title>
   <style>
-    body {
+    html, body {
       margin: 0;
-      background: black;
-      color: white;
-      font-family: Arial, sans-serif;
+      padding: 0;
+      background: #000;
       overflow: hidden;
+      font-family: Arial, sans-serif;
     }
 
-    canvas {
+    #gameCanvas {
       display: block;
-      margin: auto;
+      margin: 0 auto;
       background: #111;
+      border: 4px solid #0f0;
     }
 
     #startScreen {
-      position: fixed;
-      top: 0; left: 0;
-      width: 100%; height: 100%;
-      background-color: rgba(0,0,0,0.9);
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.9);
       color: white;
       display: flex;
       flex-direction: column;
-      align-items: center;
       justify-content: center;
-      z-index: 1000;
-      text-align: center;
+      align-items: center;
+      z-index: 2;
     }
 
-    #playButton {
-      margin-top: 20px;
+    #startScreen h1 {
+      margin-bottom: 1rem;
+    }
+
+    #startScreen button {
       padding: 10px 20px;
       font-size: 18px;
-      background: limegreen;
+      background: #0f0;
       border: none;
-      border-radius: 10px;
       cursor: pointer;
+      border-radius: 8px;
     }
 
-    #playButton:hover {
-      background: #4cff4c;
+    .touch-controls {
+      position: absolute;
+      bottom: 20px;
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      padding: 0 20px;
+      z-index: 1;
+    }
+
+    .touch-button {
+      background: rgba(0,255,0,0.4);
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      color: #fff;
+      font-size: 24px;
+      user-select: none;
+    }
+
+    @media (orientation: portrait) {
+      #gameCanvas {
+        width: 100vw;
+        height: 70vh;
+      }
+    }
+
+    @media (orientation: landscape) {
+      #gameCanvas {
+        width: 100vw;
+        height: 90vh;
+      }
     }
   </style>
 </head>
 <body>
   <div id="startScreen">
-    <h1>Welcome to Pong</h1>
-    <p><strong>Left Paddle:</strong> W (Up) / S (Down)</p>
-    <p><strong>Right Paddle:</strong> ↑ (Up) / ↓ (Down)</p>
-    <button id="playButton">Play</button>
+    <h1>Welcome to Pong!</h1>
+    <p>Controls:</p>
+    <ul>
+      <li>Desktop: W/S for Left Paddle, ↑/↓ for Right Paddle</li>
+      <li>Mobile: Tap ⬆️ or ⬇️ buttons</li>
+    </ul>
+    <button onclick="startGame()">Play</button>
   </div>
-  <canvas id="pong" width="800" height="500"></canvas>
+
+  <canvas id="gameCanvas"></canvas>
+
+  <div class="touch-controls" id="touchControls" style="display: none;">
+    <div>
+      <div class="touch-button" ontouchstart="leftUp=true" ontouchend="leftUp=false">⬆️</div>
+      <div class="touch-button" ontouchstart="leftDown=true" ontouchend="leftDown=false">⬇️</div>
+    </div>
+    <div>
+      <div class="touch-button" ontouchstart="rightUp=true" ontouchend="rightUp=false">⬆️</div>
+      <div class="touch-button" ontouchstart="rightDown=true" ontouchend="rightDown=false">⬇️</div>
+    </div>
+  </div>
 
   <script>
-    const canvas = document.getElementById("pong");
-    const ctx = canvas.getContext("2d");
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    let width = window.innerWidth;
+    let height = window.innerHeight * 0.8;
+    canvas.width = width;
+    canvas.height = height;
 
-    let gameRunning = false;
-    document.getElementById("playButton").addEventListener("click", () => {
-      document.getElementById("startScreen").style.display = "none";
-      gameRunning = true;
-      requestAnimationFrame(gameLoop);
-    });
-
-    const paddleWidth = 10;
     const paddleHeight = 80;
-    const paddleGap = 30;
+    const paddleWidth = 10;
+    const paddleSpeed = 7;
+    const ballSize = 10;
 
-    const leftPaddle = {
-      x: paddleGap,
-      y: canvas.height / 2 - paddleHeight / 2,
-      width: paddleWidth,
-      height: paddleHeight,
-      dy: 5
-    };
+    let leftPaddleY = height / 2 - paddleHeight / 2;
+    let rightPaddleY = height / 2 - paddleHeight / 2;
 
-    const rightPaddle = {
-      x: canvas.width - paddleWidth - paddleGap,
-      y: canvas.height / 2 - paddleHeight / 2,
-      width: paddleWidth,
-      height: paddleHeight,
-      dy: 5
-    };
+    let leftUp = false;
+    let leftDown = false;
+    let rightUp = false;
+    let rightDown = false;
 
-    const ball = {
-      x: canvas.width / 2,
-      y: canvas.height / 2,
-      size: 10,
-      speed: 4,
-      dx: 4,
-      dy: 4
-    };
-
-    // Sound effects
-    const paddleSound = new Audio("https://www.fesliyanstudios.com/play-mp3/387");
-    const wallSound = new Audio("https://www.fesliyanstudios.com/play-mp3/388");
-
-    function drawRect(x, y, w, h, color) {
-      ctx.fillStyle = color;
-      ctx.fillRect(x, y, w, h);
-    }
-
-    function drawBall(x, y, r, color) {
-      ctx.fillStyle = color;
-      ctx.beginPath();
-      ctx.arc(x, y, r, 0, Math.PI * 2, false);
-      ctx.closePath();
-      ctx.fill();
-    }
-
-    function movePaddles() {
-      if (keys["w"] && leftPaddle.y > 0) leftPaddle.y -= leftPaddle.dy;
-      if (keys["s"] && leftPaddle.y + leftPaddle.height < canvas.height) leftPaddle.y += leftPaddle.dy;
-      if (keys["ArrowUp"] && rightPaddle.y > 0) rightPaddle.y -= rightPaddle.dy;
-      if (keys["ArrowDown"] && rightPaddle.y + rightPaddle.height < canvas.height) rightPaddle.y += rightPaddle.dy;
-    }
-
-    function resetBall() {
-      ball.x = canvas.width / 2;
-      ball.y = canvas.height / 2;
-      ball.speed = 4;
-      ball.dx = -ball.dx;
-    }
-
-    function updateBall() {
-      ball.x += ball.dx;
-      ball.y += ball.dy;
-
-      // Bounce off top/bottom
-      if (ball.y - ball.size < 0 || ball.y + ball.size > canvas.height) {
-        ball.dy *= -1;
-        wallSound.play();
-      }
-
-      // Bounce off paddles
-      if (
-        ball.x - ball.size < leftPaddle.x + leftPaddle.width &&
-        ball.y > leftPaddle.y &&
-        ball.y < leftPaddle.y + leftPaddle.height
-      ) {
-        ball.dx *= -1;
-        ball.speed += 0.5;
-        ball.dx = ball.speed;
-        paddleSound.play();
-      }
-
-      if (
-        ball.x + ball.size > rightPaddle.x &&
-        ball.y > rightPaddle.y &&
-        ball.y < rightPaddle.y + rightPaddle.height
-      ) {
-        ball.dx *= -1;
-        ball.speed += 0.5;
-        ball.dx = -ball.speed;
-        paddleSound.play();
-      }
-
-      // Reset if out of bounds
-      if (ball.x + ball.size < 0 || ball.x - ball.size > canvas.width) {
-        resetBall();
-      }
-    }
+    let ballX = width / 2;
+    let ballY = height / 2;
+    let ballVX = 4;
+    let ballVY = 4;
+    let speedMultiplier = 1.01;
 
     function draw() {
-      drawRect(0, 0, canvas.width, canvas.height, "#111");
-      drawRect(leftPaddle.x, leftPaddle.y, leftPaddle.width, leftPaddle.height, "white");
-      drawRect(rightPaddle.x, rightPaddle.y, rightPaddle.width, rightPaddle.height, "white");
-      drawBall(ball.x, ball.y, ball.size, "white");
+      ctx.fillStyle = 'black';
+      ctx.fillRect(0, 0, width, height);
+
+      // paddles
+      ctx.fillStyle = 'lime';
+      ctx.fillRect(10, leftPaddleY, paddleWidth, paddleHeight);
+      ctx.fillRect(width - 20, rightPaddleY, paddleWidth, paddleHeight);
+
+      // ball
+      ctx.fillStyle = 'white';
+      ctx.fillRect(ballX, ballY, ballSize, ballSize);
     }
 
-    function gameLoop() {
-      if (!gameRunning) return;
-      movePaddles();
-      updateBall();
+    function update() {
+      // keyboard controls
+      if (leftUp && leftPaddleY > 0) leftPaddleY -= paddleSpeed;
+      if (leftDown && leftPaddleY < height - paddleHeight) leftPaddleY += paddleSpeed;
+      if (rightUp && rightPaddleY > 0) rightPaddleY -= paddleSpeed;
+      if (rightDown && rightPaddleY < height - paddleHeight) rightPaddleY += paddleSpeed;
+
+      // ball movement
+      ballX += ballVX;
+      ballY += ballVY;
+
+      // bounce off top/bottom
+      if (ballY <= 0 || ballY >= height - ballSize) ballVY = -ballVY;
+
+      // bounce off paddles
+      if (
+        ballX <= 20 &&
+        ballY >= leftPaddleY &&
+        ballY <= leftPaddleY + paddleHeight
+      ) {
+        ballVX = -ballVX * speedMultiplier;
+      }
+
+      if (
+        ballX >= width - 30 &&
+        ballY >= rightPaddleY &&
+        ballY <= rightPaddleY + paddleHeight
+      ) {
+        ballVX = -ballVX * speedMultiplier;
+      }
+
+      // reset if out of bounds
+      if (ballX < 0 || ballX > width) {
+        ballX = width / 2;
+        ballY = height / 2;
+        ballVX = 4;
+        ballVY = 4;
+      }
+    }
+
+    function loop() {
       draw();
-      requestAnimationFrame(gameLoop);
+      update();
+      requestAnimationFrame(loop);
     }
 
-    const keys = {};
-    window.addEventListener("keydown", (e) => keys[e.key] = true);
-    window.addEventListener("keyup", (e) => keys[e.key] = false);
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'w') leftUp = true;
+      if (e.key === 's') leftDown = true;
+      if (e.key === 'ArrowUp') rightUp = true;
+      if (e.key === 'ArrowDown') rightDown = true;
+    });
+
+    document.addEventListener('keyup', (e) => {
+      if (e.key === 'w') leftUp = false;
+      if (e.key === 's') leftDown = false;
+      if (e.key === 'ArrowUp') rightUp = false;
+      if (e.key === 'ArrowDown') rightDown = false;
+    });
+
+    function startGame() {
+      document.getElementById('startScreen').style.display = 'none';
+      document.getElementById('touchControls').style.display = 'flex';
+      loop();
+    }
+
+    window.addEventListener('resize', () => {
+      width = window.innerWidth;
+      height = window.innerHeight * 0.8;
+      canvas.width = width;
+      canvas.height = height;
+    });
   </script>
 </body>
 </html>
