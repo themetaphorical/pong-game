@@ -8,221 +8,158 @@
     html, body {
       margin: 0;
       padding: 0;
-      background: #000;
       overflow: hidden;
-      font-family: Arial, sans-serif;
-    }
-
-    #gameCanvas {
-      display: block;
-      margin: 0 auto;
-      background: #111;
-      border: 4px solid #0f0;
-    }
-
-    #startScreen {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
+      background-color: black;
       height: 100%;
-      background: rgba(0, 0, 0, 0.9);
-      color: white;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      z-index: 2;
     }
-
-    #startScreen h1 {
-      margin-bottom: 1rem;
+    canvas {
+      display: block;
+      background: #000;
     }
-
-    #startScreen button {
-      padding: 10px 20px;
-      font-size: 18px;
-      background: #0f0;
-      border: none;
-      cursor: pointer;
-      border-radius: 8px;
-    }
-
-    .touch-controls {
+    #controls {
       position: absolute;
-      bottom: 20px;
+      bottom: 10px;
       width: 100%;
-      display: flex;
-      justify-content: space-between;
-      padding: 0 20px;
-      z-index: 1;
+      text-align: center;
     }
-
-    .touch-button {
-      background: rgba(0,255,0,0.4);
-      width: 60px;
-      height: 60px;
-      border-radius: 50%;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      color: #fff;
+    .arrow-btn {
+      display: none;
       font-size: 24px;
-      user-select: none;
+      margin: 5px;
+      padding: 10px;
+      border-radius: 5px;
+      background: white;
+      color: black;
+      border: none;
     }
-
-    @media (orientation: portrait) {
-      #gameCanvas {
-        width: 100vw;
-        height: 70vh;
-      }
-    }
-
-    @media (orientation: landscape) {
-      #gameCanvas {
-        width: 100vw;
-        height: 90vh;
+    @media (pointer: coarse) {
+      .arrow-btn {
+        display: none; /* hidden as we're using touch paddles */
       }
     }
   </style>
 </head>
 <body>
-  <div id="startScreen">
-    <h1>Welcome to Pong!</h1>
-    <p>Controls:</p>
-    <ul>
-      <li>Desktop: W/S for Left Paddle, ↑/↓ for Right Paddle</li>
-      <li>Mobile: Tap ⬆️ or ⬇️ buttons</li>
-    </ul>
-    <button onclick="startGame()">Play</button>
-  </div>
-
   <canvas id="gameCanvas"></canvas>
-
-  <div class="touch-controls" id="touchControls" style="display: none;">
-    <div>
-      <div class="touch-button" ontouchstart="leftUp=true" ontouchend="leftUp=false">⬆️</div>
-      <div class="touch-button" ontouchstart="leftDown=true" ontouchend="leftDown=false">⬇️</div>
-    </div>
-    <div>
-      <div class="touch-button" ontouchstart="rightUp=true" ontouchend="rightUp=false">⬆️</div>
-      <div class="touch-button" ontouchstart="rightDown=true" ontouchend="rightDown=false">⬇️</div>
-    </div>
-  </div>
 
   <script>
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     let width = window.innerWidth;
-    let height = window.innerHeight * 0.8;
+    let height = window.innerHeight;
     canvas.width = width;
     canvas.height = height;
 
-    const paddleHeight = 80;
-    const paddleWidth = 10;
-    const paddleSpeed = 7;
-    const ballSize = 10;
-
-    let leftPaddleY = height / 2 - paddleHeight / 2;
-    let rightPaddleY = height / 2 - paddleHeight / 2;
-
-    let leftUp = false;
-    let leftDown = false;
-    let rightUp = false;
-    let rightDown = false;
+    let paddleWidth = 10;
+    let paddleHeight = height / 6;
+    let playerY = height / 2 - paddleHeight / 2;
+    let opponentY = height / 2 - paddleHeight / 2;
+    const paddleSpeed = 10;
+    let upPressed = false;
+    let downPressed = false;
 
     let ballX = width / 2;
     let ballY = height / 2;
-    let ballVX = 4;
-    let ballVY = 4;
-    let speedMultiplier = 1.01;
+    let ballRadius = 10;
+    let ballSpeedX = (width > 800) ? 7 : 5;
+    let ballSpeedY = 3;
 
-    function draw() {
-      ctx.fillStyle = 'black';
-      ctx.fillRect(0, 0, width, height);
-
-      // paddles
-      ctx.fillStyle = 'lime';
-      ctx.fillRect(10, leftPaddleY, paddleWidth, paddleHeight);
-      ctx.fillRect(width - 20, rightPaddleY, paddleWidth, paddleHeight);
-
-      // ball
-      ctx.fillStyle = 'white';
-      ctx.fillRect(ballX, ballY, ballSize, ballSize);
+    // Adjust speed based on width
+    function adjustBallSpeed() {
+      ballSpeedX = Math.max(4, Math.floor(width / 150));
+      ballSpeedY = Math.max(2, Math.floor(width / 400));
     }
 
-    function update() {
-      // keyboard controls
-      if (leftUp && leftPaddleY > 0) leftPaddleY -= paddleSpeed;
-      if (leftDown && leftPaddleY < height - paddleHeight) leftPaddleY += paddleSpeed;
-      if (rightUp && rightPaddleY > 0) rightPaddleY -= paddleSpeed;
-      if (rightDown && rightPaddleY < height - paddleHeight) rightPaddleY += paddleSpeed;
-
-      // ball movement
-      ballX += ballVX;
-      ballY += ballVY;
-
-      // bounce off top/bottom
-      if (ballY <= 0 || ballY >= height - ballSize) ballVY = -ballVY;
-
-      // bounce off paddles
-      if (
-        ballX <= 20 &&
-        ballY >= leftPaddleY &&
-        ballY <= leftPaddleY + paddleHeight
-      ) {
-        ballVX = -ballVX * speedMultiplier;
-      }
-
-      if (
-        ballX >= width - 30 &&
-        ballY >= rightPaddleY &&
-        ballY <= rightPaddleY + paddleHeight
-      ) {
-        ballVX = -ballVX * speedMultiplier;
-      }
-
-      // reset if out of bounds
-      if (ballX < 0 || ballX > width) {
-        ballX = width / 2;
-        ballY = height / 2;
-        ballVX = 4;
-        ballVY = 4;
-      }
-    }
-
-    function loop() {
-      draw();
-      update();
-      requestAnimationFrame(loop);
-    }
-
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'w') leftUp = true;
-      if (e.key === 's') leftDown = true;
-      if (e.key === 'ArrowUp') rightUp = true;
-      if (e.key === 'ArrowDown') rightDown = true;
-    });
-
-    document.addEventListener('keyup', (e) => {
-      if (e.key === 'w') leftUp = false;
-      if (e.key === 's') leftDown = false;
-      if (e.key === 'ArrowUp') rightUp = false;
-      if (e.key === 'ArrowDown') rightDown = false;
-    });
-
-    function startGame() {
-      document.getElementById('startScreen').style.display = 'none';
-      document.getElementById('touchControls').style.display = 'flex';
-      loop();
-    }
+    adjustBallSpeed();
 
     window.addEventListener('resize', () => {
       width = window.innerWidth;
-      height = window.innerHeight * 0.8;
+      height = window.innerHeight;
       canvas.width = width;
       canvas.height = height;
+      paddleHeight = height / 6;
+      adjustBallSpeed();
     });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowUp') upPressed = true;
+      if (e.key === 'ArrowDown') downPressed = true;
+      if (e.key === 'Escape') {
+        window.location.href = "https://themetaphorical.com/features/";
+      }
+    });
+
+    document.addEventListener('keyup', (e) => {
+      if (e.key === 'ArrowUp') upPressed = false;
+      if (e.key === 'ArrowDown') downPressed = false;
+    });
+
+    // Touch detection and paddle control
+    const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    if (isTouch) {
+      canvas.addEventListener('touchmove', (e) => {
+        let touch = e.touches[0];
+        let touchY = touch.clientY;
+        playerY = touchY - paddleHeight / 2;
+      });
+    }
+
+    function drawPaddle(x, y) {
+      ctx.fillStyle = 'white';
+      ctx.fillRect(x, y, paddleWidth, paddleHeight);
+    }
+
+    function drawBall() {
+      ctx.beginPath();
+      ctx.arc(ballX, ballY, ballRadius, 0, Math.PI * 2);
+      ctx.fillStyle = 'white';
+      ctx.fill();
+      ctx.closePath();
+    }
+
+    function moveBall() {
+      ballX += ballSpeedX;
+      ballY += ballSpeedY;
+
+      if (ballY + ballRadius > height || ballY - ballRadius < 0) {
+        ballSpeedY = -ballSpeedY;
+      }
+
+      // Player collision
+      if (
+        ballX - ballRadius < paddleWidth &&
+        ballY > playerY && ballY < playerY + paddleHeight
+      ) {
+        ballSpeedX = -ballSpeedX;
+      }
+
+      // Opponent collision
+      if (
+        ballX + ballRadius > width - paddleWidth &&
+        ballY > opponentY && ballY < opponentY + paddleHeight
+      ) {
+        ballSpeedX = -ballSpeedX;
+      }
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, width, height);
+
+      if (!isTouch) {
+        if (upPressed && playerY > 0) playerY -= paddleSpeed;
+        if (downPressed && playerY + paddleHeight < height) playerY += paddleSpeed;
+        opponentY = playerY; // mirror for now
+      }
+
+      drawPaddle(0, playerY);
+      drawPaddle(width - paddleWidth, opponentY);
+      drawBall();
+      moveBall();
+
+      requestAnimationFrame(draw);
+    }
+
+    draw();
   </script>
 </body>
 </html>
