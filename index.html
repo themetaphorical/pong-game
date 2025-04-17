@@ -3,163 +3,147 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Pong Game</title>
+  <title>Classic Pong</title>
   <style>
     html, body {
       margin: 0;
       padding: 0;
+      background: black;
       overflow: hidden;
-      background-color: black;
-      height: 100%;
     }
     canvas {
       display: block;
-      background: #000;
-    }
-    #controls {
-      position: absolute;
-      bottom: 10px;
-      width: 100%;
-      text-align: center;
-    }
-    .arrow-btn {
-      display: none;
-      font-size: 24px;
-      margin: 5px;
-      padding: 10px;
-      border-radius: 5px;
-      background: white;
-      color: black;
-      border: none;
-    }
-    @media (pointer: coarse) {
-      .arrow-btn {
-        display: none; /* hidden as we're using touch paddles */
-      }
+      background: black;
     }
   </style>
 </head>
 <body>
-  <canvas id="gameCanvas"></canvas>
+<canvas id="pong"></canvas>
 
-  <script>
-    const canvas = document.getElementById('gameCanvas');
-    const ctx = canvas.getContext('2d');
-    let width = window.innerWidth;
-    let height = window.innerHeight;
+<script>
+  const canvas = document.getElementById("pong");
+  const ctx = canvas.getContext("2d");
+
+  let width = window.innerWidth;
+  let height = window.innerHeight;
+  canvas.width = width;
+  canvas.height = height;
+
+  let paddleWidth = 10;
+  let paddleHeight = height / 5;
+  let paddleSpeed = 10;
+
+  let leftPaddleY = height / 2 - paddleHeight / 2;
+  let rightPaddleY = height / 2 - paddleHeight / 2;
+
+  let ballSize = 10;
+  let ballX = width / 2;
+  let ballY = height / 2;
+  let ballSpeedX = width > 1000 ? 6 : 4;
+  let ballSpeedY = 2;
+  let ballAcceleration = 0.05;
+
+  let keys = {};
+  let isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints;
+
+  // Draw
+  function drawRect(x, y, w, h, color) {
+    ctx.fillStyle = color;
+    ctx.fillRect(x, y, w, h);
+  }
+
+  function drawBall(x, y, size, color) {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(x, y, size, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Controls
+  document.addEventListener("keydown", (e) => {
+    keys[e.key] = true;
+    if (e.key === "Escape") window.close();
+  });
+  document.addEventListener("keyup", (e) => keys[e.key] = false);
+
+  if (isTouchDevice) {
+    canvas.addEventListener("touchmove", (e) => {
+      let touchY = e.touches[0].clientY;
+      leftPaddleY = touchY - paddleHeight / 2;
+      rightPaddleY = touchY - paddleHeight / 2;
+    });
+  }
+
+  // Game Loop
+  function gameLoop() {
+    ctx.clearRect(0, 0, width, height);
+
+    // Move paddles (desktop)
+    if (!isTouchDevice) {
+      if (keys["ArrowUp"]) {
+        leftPaddleY -= paddleSpeed;
+        rightPaddleY -= paddleSpeed;
+      }
+      if (keys["ArrowDown"]) {
+        leftPaddleY += paddleSpeed;
+        rightPaddleY += paddleSpeed;
+      }
+    }
+
+    // Constrain paddles
+    leftPaddleY = Math.max(0, Math.min(height - paddleHeight, leftPaddleY));
+    rightPaddleY = Math.max(0, Math.min(height - paddleHeight, rightPaddleY));
+
+    // Draw paddles
+    drawRect(20, leftPaddleY, paddleWidth, paddleHeight, "white");
+    drawRect(width - 30, rightPaddleY, paddleWidth, paddleHeight, "white");
+
+    // Move ball
+    ballX += ballSpeedX;
+    ballY += ballSpeedY;
+
+    // Collision with top/bottom
+    if (ballY <= 0 || ballY >= height) ballSpeedY = -ballSpeedY;
+
+    // Collision with paddles
+    if (
+      ballX - ballSize < 30 &&
+      ballY > leftPaddleY &&
+      ballY < leftPaddleY + paddleHeight
+    ) {
+      ballSpeedX = -ballSpeedX;
+      ballSpeedX += ballAcceleration;
+    }
+    if (
+      ballX + ballSize > width - 30 &&
+      ballY > rightPaddleY &&
+      ballY < rightPaddleY + paddleHeight
+    ) {
+      ballSpeedX = -ballSpeedX;
+      ballSpeedX -= ballAcceleration;
+    }
+
+    // Reset ball if out of bounds
+    if (ballX < 0 || ballX > width) {
+      ballX = width / 2;
+      ballY = height / 2;
+      ballSpeedX = width > 1000 ? 6 : 4;
+      ballSpeedY = 2;
+    }
+
+    drawBall(ballX, ballY, ballSize, "white");
+    requestAnimationFrame(gameLoop);
+  }
+
+  window.addEventListener("resize", () => {
+    width = window.innerWidth;
+    height = window.innerHeight;
     canvas.width = width;
     canvas.height = height;
+    paddleHeight = height / 5;
+  });
 
-    let paddleWidth = 10;
-    let paddleHeight = height / 6;
-    let playerY = height / 2 - paddleHeight / 2;
-    let opponentY = height / 2 - paddleHeight / 2;
-    const paddleSpeed = 10;
-    let upPressed = false;
-    let downPressed = false;
-
-    let ballX = width / 2;
-    let ballY = height / 2;
-    let ballRadius = 10;
-    let ballSpeedX = (width > 800) ? 7 : 5;
-    let ballSpeedY = 3;
-
-    // Adjust speed based on width
-    function adjustBallSpeed() {
-      ballSpeedX = Math.max(4, Math.floor(width / 150));
-      ballSpeedY = Math.max(2, Math.floor(width / 400));
-    }
-
-    adjustBallSpeed();
-
-    window.addEventListener('resize', () => {
-      width = window.innerWidth;
-      height = window.innerHeight;
-      canvas.width = width;
-      canvas.height = height;
-      paddleHeight = height / 6;
-      adjustBallSpeed();
-    });
-
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'ArrowUp') upPressed = true;
-      if (e.key === 'ArrowDown') downPressed = true;
-      if (e.key === 'Escape') {
-        window.location.href = "https://themetaphorical.com/features/";
-      }
-    });
-
-    document.addEventListener('keyup', (e) => {
-      if (e.key === 'ArrowUp') upPressed = false;
-      if (e.key === 'ArrowDown') downPressed = false;
-    });
-
-    // Touch detection and paddle control
-    const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-    if (isTouch) {
-      canvas.addEventListener('touchmove', (e) => {
-        let touch = e.touches[0];
-        let touchY = touch.clientY;
-        playerY = touchY - paddleHeight / 2;
-      });
-    }
-
-    function drawPaddle(x, y) {
-      ctx.fillStyle = 'white';
-      ctx.fillRect(x, y, paddleWidth, paddleHeight);
-    }
-
-    function drawBall() {
-      ctx.beginPath();
-      ctx.arc(ballX, ballY, ballRadius, 0, Math.PI * 2);
-      ctx.fillStyle = 'white';
-      ctx.fill();
-      ctx.closePath();
-    }
-
-    function moveBall() {
-      ballX += ballSpeedX;
-      ballY += ballSpeedY;
-
-      if (ballY + ballRadius > height || ballY - ballRadius < 0) {
-        ballSpeedY = -ballSpeedY;
-      }
-
-      // Player collision
-      if (
-        ballX - ballRadius < paddleWidth &&
-        ballY > playerY && ballY < playerY + paddleHeight
-      ) {
-        ballSpeedX = -ballSpeedX;
-      }
-
-      // Opponent collision
-      if (
-        ballX + ballRadius > width - paddleWidth &&
-        ballY > opponentY && ballY < opponentY + paddleHeight
-      ) {
-        ballSpeedX = -ballSpeedX;
-      }
-    }
-
-    function draw() {
-      ctx.clearRect(0, 0, width, height);
-
-      if (!isTouch) {
-        if (upPressed && playerY > 0) playerY -= paddleSpeed;
-        if (downPressed && playerY + paddleHeight < height) playerY += paddleSpeed;
-        opponentY = playerY; // mirror for now
-      }
-
-      drawPaddle(0, playerY);
-      drawPaddle(width - paddleWidth, opponentY);
-      drawBall();
-      moveBall();
-
-      requestAnimationFrame(draw);
-    }
-
-    draw();
-  </script>
+  gameLoop();
+</script>
 </body>
 </html>
