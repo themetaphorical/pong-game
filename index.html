@@ -43,4 +43,109 @@
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
 
-    let paddleHeight
+    let paddleHeight = 60;
+    let paddleWidth = 10;
+    let leftPaddleY = (canvas.height - paddleHeight) / 2;
+    let rightPaddleY = (canvas.height - paddleHeight) / 2;
+    let paddleSpeed = 4;
+
+    const ball = {
+      x: canvas.width / 2,
+      y: canvas.height / 2,
+      radius: 8,
+      dx: 4,
+      dy: 4,
+      speedMultiplier: 1.05
+    };
+
+    let keys = {};
+
+    document.addEventListener("keydown", (e) => {
+      keys[e.key] = true;
+    });
+
+    document.addEventListener("keyup", (e) => {
+      keys[e.key] = false;
+    });
+
+    function drawPaddle(x, y) {
+      ctx.fillStyle = "white";
+      ctx.fillRect(x, y, paddleWidth, paddleHeight);
+    }
+
+    function drawBall() {
+      ctx.beginPath();
+      ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+      ctx.fillStyle = "white";
+      ctx.fill();
+      ctx.closePath();
+    }
+
+    function resetBall() {
+      ball.x = canvas.width / 2;
+      ball.y = canvas.height / 2;
+      ball.dx = 4 * (Math.random() > 0.5 ? 1 : -1);
+      ball.dy = 4 * (Math.random() > 0.5 ? 1 : -1);
+    }
+
+    function update() {
+      // Move paddles
+      if (keys["w"] && leftPaddleY > 0) leftPaddleY -= paddleSpeed;
+      if (keys["s"] && leftPaddleY < canvas.height - paddleHeight) leftPaddleY += paddleSpeed;
+      if (keys["ArrowUp"] && rightPaddleY > 0) rightPaddleY -= paddleSpeed;
+      if (keys["ArrowDown"] && rightPaddleY < canvas.height - paddleHeight) rightPaddleY += paddleSpeed;
+
+      // Move ball
+      ball.x += ball.dx;
+      ball.y += ball.dy;
+
+      // Wall collision
+      if (ball.y - ball.radius < 0 || ball.y + ball.radius > canvas.height) {
+        ball.dy *= -1;
+      }
+
+      // Left paddle collision
+      if (
+        ball.x - ball.radius < paddleWidth + 20 &&
+        ball.y > leftPaddleY &&
+        ball.y < leftPaddleY + paddleHeight
+      ) {
+        ball.dx *= -1;
+        ball.dx *= ball.speedMultiplier;
+        ball.dy *= ball.speedMultiplier;
+      }
+
+      // Right paddle collision
+      if (
+        ball.x + ball.radius > canvas.width - paddleWidth - 20 &&
+        ball.y > rightPaddleY &&
+        ball.y < rightPaddleY + paddleHeight
+      ) {
+        ball.dx *= -1;
+        ball.dx *= ball.speedMultiplier;
+        ball.dy *= ball.speedMultiplier;
+      }
+
+      // Score reset
+      if (ball.x < 0 || ball.x > canvas.width) {
+        resetBall();
+      }
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawPaddle(20, leftPaddleY);
+      drawPaddle(canvas.width - 20 - paddleWidth, rightPaddleY);
+      drawBall();
+    }
+
+    function gameLoop() {
+      update();
+      draw();
+      requestAnimationFrame(gameLoop);
+    }
+
+    gameLoop();
+  </script>
+</body>
+</html>
